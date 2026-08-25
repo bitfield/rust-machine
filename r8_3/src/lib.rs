@@ -18,9 +18,9 @@ impl Default for Cpu {
 
 impl Cpu {
     pub fn step(&mut self) -> bool {
-        let instruction = self.mem.get(usize::from(self.pc)).unwrap_or(&0);
+        let opcode = self.mem.get(usize::from(self.pc)).unwrap_or(&0);
         self.pc = self.pc.wrapping_add(1);
-        match *instruction {
+        match *opcode {
             HALT => false,
             NOP => true,
             other => unimplemented!("opcode {other}"),
