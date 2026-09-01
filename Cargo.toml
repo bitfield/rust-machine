@@ -1,8 +1,11 @@
-[workspace]
-members = ["r8_*"]
-resolver = "2"
+[package]
+name = "r8"
+version = "0.1.0"
+edition = "2024"
 
-[workspace.lints.clippy]
+[dependencies]
+
+[lints.clippy]
 as_conversions = "deny"
 arithmetic_side_effects = "deny"
 unwrap_used = "deny"
@@ -24,3 +27,6 @@ exhaustive_enums = "allow"
 single_call_fn = "allow"
 missing_docs_in_private_items = "allow"
 separated_literal_suffix = "allow"
+default_numeric_fallback = "allow"
+decimal_literal_representation = "allow"
+large_stack_arrays = "allow"

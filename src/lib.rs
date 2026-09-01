@@ -1,34 +1,26 @@
-pub const NOP: u8 = 1;
-
 #[derive(Debug)]
 pub struct Cpu {
-    pub pc: u16,
-    pub mem: [u8; 65536],
+    pub mem: [usize; 65536],
+    pub pc: usize,
 }
 
 impl Default for Cpu {
     fn default() -> Self {
         Self {
-            pc: 0,
             mem: [0; 65536],
+            pc: 0,
         }
     }
 }
 
 impl Cpu {
     pub fn step(&mut self) {
-        let opcode = self.mem.get(usize::from(self.pc)).unwrap_or(&0);
         self.pc = self.pc.wrapping_add(1);
-        match *opcode {
-            NOP => {
-                // nothing to do
-            }
-            other => unimplemented!("opcode {other}"),
-        }
     }
 }
 
 #[cfg(test)]
+#[expect(clippy::unwrap_used, reason = "tests")]
 mod tests {
     use super::*;
 
@@ -42,12 +34,9 @@ mod tests {
     #[test]
     fn step_increments_pc() {
         let mut cpu = Cpu::default();
-        cpu.mem[256] = NOP;
-        cpu.mem[257] = NOP;
-        cpu.pc = 256;
         cpu.step();
-        assert_eq!(cpu.pc, 257, "wrong PC after first step()");
+        assert_eq!(cpu.pc, 1, "wrong PC after step()");
         cpu.step();
-        assert_eq!(cpu.pc, 258, "wrong PC after second step()");
+        assert_eq!(cpu.pc, 2, "wrong PC after step()");
     }
 }
