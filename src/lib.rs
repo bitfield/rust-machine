@@ -18,7 +18,12 @@ impl Default for Cpu {
 
 impl Cpu {
     pub fn step(&mut self) {
+        let opcode = self.mem.get(self.pc).copied().unwrap_or_default();
         self.pc = self.pc.wrapping_add(1);
+        if opcode == 48 {
+            // `inc`
+            self.a = self.a.wrapping_add(1);
+        }
     }
 }
 
@@ -42,5 +47,13 @@ mod tests {
         assert_eq!(cpu.pc, 1, "wrong PC after step()");
         cpu.step();
         assert_eq!(cpu.pc, 2, "wrong PC after step()");
+    }
+
+    #[test]
+    fn inc_increments_a() {
+        let mut cpu = Cpu::default();
+        cpu.mem[0] = 48; // `inc`
+        cpu.step();
+        assert_eq!(cpu.a, 1, "wrong a after `inc`");
     }
 }
