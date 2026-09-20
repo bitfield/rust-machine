@@ -17,11 +17,19 @@ impl Default for Cpu {
 }
 
 impl Cpu {
-    pub fn step(&mut self) {
+    pub fn run(&mut self) {
+        while self.step() {}
+    }
+
+    pub fn step(&mut self) -> bool {
         let address = usize::from(self.pc);
         let opcode = self.mem.get(address).copied().unwrap_or_default();
         self.pc = self.pc.wrapping_add(1);
         match opcode {
+            0 => {
+                // `halt`
+                return false;
+            }
             48 => {
                 // `inc`
                 self.a = self.a.wrapping_add(1);
@@ -32,6 +40,7 @@ impl Cpu {
             }
             _ => {}
         }
+        true
     }
 }
 
@@ -96,5 +105,15 @@ mod tests {
         let mut cpu = Cpu::default();
         cpu.mem[0] = 0_u8;
         assert_eq!(cpu.mem[0], 0, "wrong memory contents");
+    }
+
+    #[test]
+    fn run_runs_until_halted() {
+        let mut cpu = Cpu::default();
+        cpu.mem[0] = 48; // `inc`
+        cpu.mem[1] = 0; // `halt`
+        cpu.run();
+        assert_eq!(cpu.a, 1, "wrong a after `inc`");
+        assert_eq!(cpu.pc, 2, "wrong pc after run()");
     }
 }
