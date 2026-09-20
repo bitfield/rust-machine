@@ -1,7 +1,7 @@
 #[expect(clippy::min_ident_chars, reason = "some regs have single-letter names")]
 #[derive(Debug)]
 pub struct Cpu {
-    pub a: usize,
+    pub a: u8,
     pub mem: [usize; 65536],
     pub pc: usize,
 }
@@ -55,5 +55,14 @@ mod tests {
         cpu.mem[0] = 48; // `inc a`
         cpu.step();
         assert_eq!(cpu.a, 1, "wrong A after `inc a`");
+    }
+
+    #[test]
+    fn a_goes_from_255_to_0() {
+        let mut cpu = Cpu::default();
+        cpu.a = 255;
+        cpu.mem[0] = 48; // `inc a`
+        cpu.step();
+        assert_eq!(cpu.a, 0, "wrong A after `inc a` past 255");
     }
 }
