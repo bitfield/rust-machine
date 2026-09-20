@@ -1,3 +1,7 @@
+pub const DEC_A: u8 = 64;
+pub const HALT: u8 = 0;
+pub const INC_A: u8 = 48;
+
 #[expect(clippy::min_ident_chars, reason = "some regs have single-letter names")]
 #[derive(Debug)]
 pub struct Cpu {
@@ -26,18 +30,9 @@ impl Cpu {
         let opcode = self.mem.get(address).copied().unwrap_or_default();
         self.pc = self.pc.wrapping_add(1);
         match opcode {
-            0 => {
-                // `halt`
-                return false;
-            }
-            48 => {
-                // `inc a`
-                self.a = self.a.wrapping_add(1);
-            }
-            64 => {
-                // `dec a`
-                self.a = self.a.wrapping_sub(1);
-            }
+            DEC_A => self.a = self.a.wrapping_sub(1),
+            HALT => return false,
+            INC_A => self.a = self.a.wrapping_add(1),
             _ => {}
         }
         true
@@ -69,7 +64,7 @@ mod tests {
     #[test]
     fn inc_increments_a() {
         let mut cpu = Cpu::default();
-        cpu.mem[0] = 48; // `inc a`
+        cpu.mem[0] = INC_A;
         cpu.step();
         assert_eq!(cpu.a, 1, "wrong A after `inc a`");
     }
@@ -78,7 +73,7 @@ mod tests {
     fn a_goes_from_255_to_0() {
         let mut cpu = Cpu::default();
         cpu.a = 255;
-        cpu.mem[0] = 48; // `inc a`
+        cpu.mem[0] = INC_A;
         cpu.step();
         assert_eq!(cpu.a, 0, "wrong A after `inc a` past 255");
     }
@@ -87,7 +82,7 @@ mod tests {
     fn a_decrements_from_0_to_255() {
         let mut cpu = Cpu::default();
         cpu.a = 0;
-        cpu.mem[0] = 64; // `dec a`
+        cpu.mem[0] = DEC_A;
         cpu.step();
         assert_eq!(cpu.a, 255, "wrong A after `dec a` below 0");
     }
@@ -110,8 +105,8 @@ mod tests {
     #[test]
     fn run_runs_until_halted() {
         let mut cpu = Cpu::default();
-        cpu.mem[0] = 48; // `inc a`
-        cpu.mem[1] = 0; // `halt`
+        cpu.mem[0] = INC_A;
+        cpu.mem[1] = HALT;
         cpu.run();
         assert_eq!(cpu.a, 1, "wrong A after `inc a`");
         assert_eq!(cpu.pc, 2, "wrong PC after run()");
