@@ -20,9 +20,16 @@ impl Cpu {
     pub fn step(&mut self) {
         let opcode = self.mem.get(self.pc).copied().unwrap_or_default();
         self.pc = self.pc.wrapping_add(1);
-        if opcode == 48 {
-            // `inc`
-            self.a = self.a.wrapping_add(1);
+        match opcode {
+            48 => {
+                // `inc`
+                self.a = self.a.wrapping_add(1);
+            }
+            64 => {
+                // `dec`
+                self.a = self.a.wrapping_sub(1);
+            }
+            _ => {}
         }
     }
 }
@@ -64,5 +71,14 @@ mod tests {
         cpu.mem[0] = 48; // `inc`
         cpu.step();
         assert_eq!(cpu.a, 0, "wrong a after `inc` past 255");
+    }
+
+    #[test]
+    fn a_decrements_from_0_to_255() {
+        let mut cpu = Cpu::default();
+        cpu.a = 0;
+        cpu.mem[0] = 64; // `dec`
+        cpu.step();
+        assert_eq!(cpu.a, 255, "wrong a after `dec` below 0");
     }
 }
