@@ -3,7 +3,7 @@
 pub struct Cpu {
     pub a: u8,
     pub mem: [usize; 65536],
-    pub pc: usize,
+    pub pc: u16,
 }
 
 impl Default for Cpu {
@@ -18,7 +18,8 @@ impl Default for Cpu {
 
 impl Cpu {
     pub fn step(&mut self) {
-        let opcode = self.mem.get(self.pc).copied().unwrap_or_default();
+        let address = usize::from(self.pc);
+        let opcode = self.mem.get(address).copied().unwrap_or_default();
         self.pc = self.pc.wrapping_add(1);
         match opcode {
             48 => {
@@ -80,5 +81,13 @@ mod tests {
         cpu.mem[0] = 64; // `dec`
         cpu.step();
         assert_eq!(cpu.a, 255, "wrong a after `dec` below 0");
+    }
+
+    #[test]
+    fn pc_goes_from_65535_to_0() {
+        let mut cpu = Cpu::default();
+        cpu.pc = 65535;
+        cpu.step();
+        assert_eq!(cpu.pc, 0, "wrong pc after 65535");
     }
 }
