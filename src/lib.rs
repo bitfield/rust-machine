@@ -2,7 +2,7 @@
 #[derive(Debug)]
 pub struct Cpu {
     pub a: u8,
-    pub mem: [usize; 65536],
+    pub mem: [u8; 65536],
     pub pc: u16,
 }
 
@@ -89,5 +89,12 @@ mod tests {
         cpu.pc = 65535;
         cpu.step();
         assert_eq!(cpu.pc, 0, "wrong pc after 65535");
+    }
+
+    #[test]
+    fn memory_is_bytes() {
+        let mut cpu = Cpu::default();
+        cpu.mem[0] = 0_u8;
+        assert_eq!(cpu.mem[0], 0, "wrong memory contents");
     }
 }
