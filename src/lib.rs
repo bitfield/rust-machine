@@ -1,6 +1,7 @@
 pub const DEC_A: u8 = 64;
 pub const HALT: u8 = 0;
 pub const INC_A: u8 = 48;
+pub const LD_A: u8 = 16;
 
 #[expect(clippy::min_ident_chars, reason = "some regs have single-letter names")]
 #[derive(Debug)]
@@ -33,6 +34,12 @@ impl Cpu {
             DEC_A => self.a = self.a.wrapping_sub(1),
             HALT => return false,
             INC_A => self.a = self.a.wrapping_add(1),
+            LD_A => {
+                let operand_addr = usize::from(self.pc);
+                let operand = self.mem.get(operand_addr).copied().unwrap_or_default();
+                self.pc = self.pc.wrapping_add(1);
+                self.a = operand;
+            }
             _ => {}
         }
         true
@@ -110,5 +117,15 @@ mod tests {
         cpu.run();
         assert_eq!(cpu.a, 1, "wrong A after `inc a`");
         assert_eq!(cpu.pc, 2, "wrong PC after run()");
+    }
+
+    #[test]
+    fn ld_loads_accumulator() {
+        let mut cpu = Cpu::default();
+        cpu.mem[0] = LD_A;
+        cpu.mem[1] = 5;
+        cpu.step();
+        assert_eq!(cpu.a, 5, "wrong A after `ld a`");
+        assert_eq!(cpu.pc, 2, "wrong PC after step()");
     }
 }
