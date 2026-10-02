@@ -22,22 +22,25 @@ impl Default for Cpu {
 }
 
 impl Cpu {
+    pub fn fetch(&mut self) -> u8 {
+        let address = usize::from(self.pc);
+        let value = self.mem.get(address).copied().unwrap_or_default();
+        self.pc = self.pc.wrapping_add(1);
+        value
+    }
+
     pub fn run(&mut self) {
         while self.step() {}
     }
 
     pub fn step(&mut self) -> bool {
-        let address = usize::from(self.pc);
-        let opcode = self.mem.get(address).copied().unwrap_or_default();
-        self.pc = self.pc.wrapping_add(1);
+        let opcode = self.fetch();
         match opcode {
             DEC_A => self.a = self.a.wrapping_sub(1),
             HALT => return false,
             INC_A => self.a = self.a.wrapping_add(1),
             LD_A => {
-                let operand_addr = usize::from(self.pc);
-                let operand = self.mem.get(operand_addr).copied().unwrap_or_default();
-                self.pc = self.pc.wrapping_add(1);
+                let operand = self.fetch();
                 self.a = operand;
             }
             _ => {}
@@ -122,6 +125,7 @@ mod tests {
     #[test]
     fn ld_loads_accumulator() {
         let mut cpu = Cpu::default();
+        cpu.a = 10;
         cpu.mem[0] = LD_A;
         cpu.mem[1] = 5;
         cpu.step();
