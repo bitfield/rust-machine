@@ -1,3 +1,4 @@
+pub const ADD_A: u8 = 40;
 pub const DEC_A: u8 = 64;
 pub const HALT: u8 = 0;
 pub const INC_A: u8 = 48;
@@ -36,6 +37,10 @@ impl Cpu {
     pub fn step(&mut self) -> bool {
         let opcode = self.fetch();
         match opcode {
+            ADD_A => {
+                let operand = self.fetch();
+                self.a = self.a.wrapping_add(operand);
+            }
             DEC_A => self.a = self.a.wrapping_sub(1),
             HALT => return false,
             INC_A => self.a = self.a.wrapping_add(1),
@@ -130,6 +135,17 @@ mod tests {
         cpu.mem[1] = 5;
         cpu.step();
         assert_eq!(cpu.a, 5, "wrong A after `ld a`");
+        assert_eq!(cpu.pc, 2, "wrong PC after step()");
+    }
+
+    #[test]
+    fn add_adds_to_accumulator() {
+        let mut cpu = Cpu::default();
+        cpu.a = 1;
+        cpu.mem[0] = ADD_A;
+        cpu.mem[1] = 2;
+        cpu.step();
+        assert_eq!(cpu.a, 3, "wrong A after `add a`");
         assert_eq!(cpu.pc, 2, "wrong PC after step()");
     }
 }
