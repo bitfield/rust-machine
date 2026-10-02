@@ -1,3 +1,5 @@
+use anyhow::{Context as _, Result};
+
 pub const ADD_A: u8 = 40;
 pub const DEC_A: u8 = 64;
 pub const HALT: u8 = 0;
@@ -32,6 +34,21 @@ impl Cpu {
 
     pub fn run(&mut self) {
         while self.step() {}
+    }
+
+    /// Runs `program`.
+    ///
+    /// # Errors
+    ///
+    /// * If the program does not fit in memory.
+    pub fn run_program(&mut self, program: &[u8]) -> Result<()> {
+        let mem = self
+            .mem
+            .get_mut(0..program.len())
+            .context("program too long")?;
+        mem.copy_from_slice(program);
+        self.run();
+        Ok(())
     }
 
     pub fn step(&mut self) -> bool {
@@ -79,8 +96,7 @@ mod tests {
     #[test]
     fn inc_increments_a() {
         let mut cpu = Cpu::default();
-        cpu.mem[0] = INC_A;
-        cpu.step();
+        cpu.run_program(&[INC_A, HALT]).unwrap();
         assert_eq!(cpu.a, 1, "wrong A after `inc a`");
     }
 
@@ -88,8 +104,7 @@ mod tests {
     fn a_goes_from_255_to_0() {
         let mut cpu = Cpu::default();
         cpu.a = 255;
-        cpu.mem[0] = INC_A;
-        cpu.step();
+        cpu.run_program(&[INC_A, HALT]).unwrap();
         assert_eq!(cpu.a, 0, "wrong A after `inc a` past 255");
     }
 
@@ -97,8 +112,7 @@ mod tests {
     fn a_decrements_from_0_to_255() {
         let mut cpu = Cpu::default();
         cpu.a = 0;
-        cpu.mem[0] = DEC_A;
-        cpu.step();
+        cpu.run_program(&[DEC_A, HALT]).unwrap();
         assert_eq!(cpu.a, 255, "wrong A after `dec a` below 0");
     }
 
@@ -120,9 +134,7 @@ mod tests {
     #[test]
     fn run_runs_until_halted() {
         let mut cpu = Cpu::default();
-        cpu.mem[0] = INC_A;
-        cpu.mem[1] = HALT;
-        cpu.run();
+        cpu.run_program(&[INC_A, HALT]).unwrap();
         assert_eq!(cpu.a, 1, "wrong A after `inc a`");
         assert_eq!(cpu.pc, 2, "wrong PC after run()");
     }
@@ -131,21 +143,17 @@ mod tests {
     fn ld_loads_accumulator() {
         let mut cpu = Cpu::default();
         cpu.a = 10;
-        cpu.mem[0] = LD_A;
-        cpu.mem[1] = 5;
-        cpu.step();
+        cpu.run_program(&[LD_A, 5, HALT]).unwrap();
         assert_eq!(cpu.a, 5, "wrong A after `ld a`");
-        assert_eq!(cpu.pc, 2, "wrong PC after step()");
+        assert_eq!(cpu.pc, 3, "wrong PC after run()");
     }
 
     #[test]
     fn add_adds_to_accumulator() {
         let mut cpu = Cpu::default();
         cpu.a = 1;
-        cpu.mem[0] = ADD_A;
-        cpu.mem[1] = 2;
-        cpu.step();
+        cpu.run_program(&[ADD_A, 2, HALT]).unwrap();
         assert_eq!(cpu.a, 3, "wrong A after `add a`");
-        assert_eq!(cpu.pc, 2, "wrong PC after step()");
+        assert_eq!(cpu.pc, 3, "wrong PC after run()");
     }
 }
