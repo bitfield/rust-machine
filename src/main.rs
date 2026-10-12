@@ -1,11 +1,18 @@
 use anyhow::Result;
 
-use std::io::{Write as _, stdin, stdout};
+use std::{
+    env,
+    io::{Write as _, stdin, stdout},
+    num::ParseIntError,
+};
 
 use r8::Cpu;
 
 fn main() -> Result<()> {
+    let program: Result<Vec<u8>, ParseIntError> =
+        env::args().skip(1).map(|arg| arg.parse()).collect();
     let mut cpu = Cpu::default();
+    cpu.load_program(&program?)?;
     let mut buffer = String::new();
     println!("  PC  A");
     loop {

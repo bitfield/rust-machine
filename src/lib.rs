@@ -33,6 +33,20 @@ impl Cpu {
         value
     }
 
+    /// Loads `program` into memory.
+    ///
+    /// # Errors
+    ///
+    /// * If the program does not fit in memory.
+    pub fn load_program(&mut self, program: &[u8]) -> Result<()> {
+        let mem = self
+            .mem
+            .get_mut(0..program.len())
+            .context("program too long")?;
+        mem.copy_from_slice(program);
+        Ok(())
+    }
+
     pub fn run(&mut self) {
         while self.step() {}
     }
@@ -43,11 +57,7 @@ impl Cpu {
     ///
     /// * If the program does not fit in memory.
     pub fn run_program(&mut self, program: &[u8]) -> Result<()> {
-        let mem = self
-            .mem
-            .get_mut(0..program.len())
-            .context("program too long")?;
-        mem.copy_from_slice(program);
+        self.load_program(program)?;
         self.run();
         Ok(())
     }
