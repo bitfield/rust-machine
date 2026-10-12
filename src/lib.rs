@@ -4,6 +4,7 @@ pub const ADD_A: u8 = 40;
 pub const DEC_A: u8 = 64;
 pub const HALT: u8 = 0;
 pub const INC_A: u8 = 48;
+pub const JMP: u8 = 247;
 pub const LD_A: u8 = 16;
 
 #[expect(clippy::min_ident_chars, reason = "some regs have single-letter names")]
@@ -61,6 +62,12 @@ impl Cpu {
             DEC_A => self.a = self.a.wrapping_sub(1),
             HALT => return false,
             INC_A => self.a = self.a.wrapping_add(1),
+            JMP => {
+                let addr_lo = self.fetch();
+                let addr_hi = self.fetch();
+                let addr = u16::from_le_bytes([addr_lo, addr_hi]);
+                self.pc = addr;
+            }
             LD_A => {
                 let operand = self.fetch();
                 self.a = operand;
@@ -155,5 +162,13 @@ mod tests {
         cpu.run_program(&[ADD_A, 2, HALT]).unwrap();
         assert_eq!(cpu.a, 3, "wrong A after `add a`");
         assert_eq!(cpu.pc, 3, "wrong PC after run()");
+    }
+
+    #[test]
+    fn jmp_jumps_to_specified_address() {
+        let mut cpu = Cpu::default();
+        cpu.run_program(&[JMP, 5, 0, INC_A, HALT, HALT]).unwrap();
+        assert_eq!(cpu.a, 0, "wrong A");
+        assert_eq!(cpu.pc, 6, "wrong PC after run()");
     }
 }
