@@ -114,6 +114,16 @@ impl Cpu {
     }
 }
 
+#[must_use]
+pub fn disassemble(code: u8) -> &'static str {
+    match code {
+        DEC_A => "dec a",
+        HALT => "halt",
+        INC_A => "inc a",
+        _ => "???",
+    }
+}
+
 #[cfg(test)]
 #[expect(clippy::unwrap_used, reason = "tests")]
 mod tests {
@@ -256,5 +266,39 @@ mod tests {
             .unwrap();
         assert_eq!(cpu.a, 0, "wrong A");
         assert_eq!(cpu.pc, 9, "wrong PC");
+    }
+
+    #[test]
+    fn disassemble_correctly_disassembles_code() {
+        struct Case {
+            code: u8,
+            source: &'static str,
+        }
+        let cases: &[Case] = &[
+            Case {
+                code: INC_A,
+                source: "inc a",
+            },
+            Case {
+                code: DEC_A,
+                source: "dec a",
+            },
+            Case {
+                code: HALT,
+                source: "halt",
+            },
+            Case {
+                code: 255,
+                source: "???",
+            },
+        ];
+        for case in cases {
+            assert_eq!(
+                disassemble(case.code),
+                case.source,
+                "wrong disassembly: {}",
+                case.code
+            );
+        }
     }
 }
