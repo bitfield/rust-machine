@@ -70,10 +70,17 @@ impl Cpu {
             ADD_A => {
                 let operand = self.fetch();
                 self.a = self.a.wrapping_add(operand);
+                self.update_zero(self.a);
             }
-            DEC_A => self.a = self.a.wrapping_sub(1),
+            DEC_A => {
+                self.a = self.a.wrapping_sub(1);
+                self.update_zero(self.a);
+            }
             HALT => return false,
-            INC_A => self.a = self.a.wrapping_add(1),
+            INC_A => {
+                self.a = self.a.wrapping_add(1);
+                self.update_zero(self.a);
+            }
             JMP => {
                 let addr_lo = self.fetch();
                 let addr_hi = self.fetch();
@@ -83,10 +90,15 @@ impl Cpu {
             LD_A => {
                 let operand = self.fetch();
                 self.a = operand;
+                self.update_zero(self.a);
             }
             _ => {}
         }
         true
+    }
+
+    pub fn update_zero(&mut self, value: u8) {
+        self.zero = value == 0;
     }
 }
 
@@ -116,8 +128,10 @@ mod tests {
     #[test]
     fn inc_increments_a() {
         let mut cpu = Cpu::default();
+        cpu.zero = true;
         cpu.run_program(&[INC_A, HALT]).unwrap();
         assert_eq!(cpu.a, 1, "wrong A after `inc a`");
+        assert_eq!(cpu.zero, false, "zero not cleared");
     }
 
     #[test]
@@ -126,14 +140,25 @@ mod tests {
         cpu.a = 255;
         cpu.run_program(&[INC_A, HALT]).unwrap();
         assert_eq!(cpu.a, 0, "wrong A after `inc a` past 255");
+        assert_eq!(cpu.zero, true, "zero not set");
     }
 
     #[test]
     fn a_decrements_from_0_to_255() {
         let mut cpu = Cpu::default();
         cpu.a = 0;
+        cpu.zero = true;
         cpu.run_program(&[DEC_A, HALT]).unwrap();
         assert_eq!(cpu.a, 255, "wrong A after `dec a` below 0");
+        assert_eq!(cpu.zero, false, "zero not cleared");
+    }
+
+    #[test]
+    fn dec_sets_zero_flag() {
+        let mut cpu = Cpu::default();
+        cpu.a = 1;
+        cpu.run_program(&[DEC_A, HALT]).unwrap();
+        assert_eq!(cpu.zero, true, "zero not set");
     }
 
     #[test]
@@ -163,18 +188,38 @@ mod tests {
     fn ld_loads_accumulator() {
         let mut cpu = Cpu::default();
         cpu.a = 10;
+        cpu.zero = true;
         cpu.run_program(&[LD_A, 5, HALT]).unwrap();
         assert_eq!(cpu.a, 5, "wrong A after `ld a`");
         assert_eq!(cpu.pc, 3, "wrong PC after run()");
+        assert_eq!(cpu.zero, false, "zero not cleared");
+    }
+
+    #[test]
+    fn ld_sets_zero_flag() {
+        let mut cpu = Cpu::default();
+        cpu.a = 10;
+        cpu.run_program(&[LD_A, 0, HALT]).unwrap();
+        assert_eq!(cpu.zero, true, "zero not set");
     }
 
     #[test]
     fn add_adds_to_accumulator() {
         let mut cpu = Cpu::default();
         cpu.a = 1;
+        cpu.zero = true;
         cpu.run_program(&[ADD_A, 2, HALT]).unwrap();
         assert_eq!(cpu.a, 3, "wrong A after `add a`");
         assert_eq!(cpu.pc, 3, "wrong PC after run()");
+        assert_eq!(cpu.zero, false, "zero not cleared");
+    }
+
+    #[test]
+    fn add_sets_zero_flag() {
+        let mut cpu = Cpu::default();
+        cpu.a = 1;
+        cpu.run_program(&[ADD_A, 255, HALT]).unwrap();
+        assert_eq!(cpu.zero, true, "zero not set");
     }
 
     #[test]
