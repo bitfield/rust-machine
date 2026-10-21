@@ -1,6 +1,7 @@
 use anyhow::{Context as _, Result};
 
 pub const ADD_A: u8 = 80;
+pub const BEQ: u8 = 241;
 pub const BRA: u8 = 240;
 pub const DEC_A: u8 = 64;
 pub const HALT: u8 = 0;
@@ -73,6 +74,12 @@ impl Cpu {
                 let operand = self.fetch();
                 self.a = self.a.wrapping_add(operand);
                 self.update_zero(self.a);
+            }
+            BEQ => {
+                let displacement = self.fetch();
+                if self.zero {
+                    self.pc = self.pc.wrapping_add(u16::from(displacement));
+                }
             }
             BRA => {
                 let displacement = self.fetch();
@@ -240,5 +247,19 @@ mod tests {
         let mut cpu = Cpu::default();
         cpu.run_program(&[BRA, 1, HALT, HALT]).unwrap();
         assert_eq!(cpu.pc, 4, "wrong PC");
+    }
+
+    #[test]
+    fn beq_takes_branch_if_zero_flag_set() {
+        let mut cpu = Cpu::default();
+        cpu.run_program(&[LD_A, 0, BEQ, 1, HALT, HALT]).unwrap();
+        assert_eq!(cpu.pc, 6, "wrong PC");
+    }
+
+    #[test]
+    fn beq_does_not_take_branch_if_zero_flag_clear() {
+        let mut cpu = Cpu::default();
+        cpu.run_program(&[LD_A, 1, BEQ, 1, HALT, HALT]).unwrap();
+        assert_eq!(cpu.pc, 5, "wrong PC");
     }
 }
