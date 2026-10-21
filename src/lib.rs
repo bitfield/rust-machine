@@ -1,6 +1,7 @@
 use anyhow::{Context as _, Result};
 
 pub const ADD_A: u8 = 80;
+pub const BRA: u8 = 240;
 pub const DEC_A: u8 = 64;
 pub const HALT: u8 = 0;
 pub const INC_A: u8 = 48;
@@ -69,7 +70,13 @@ impl Cpu {
                 let operand = self.fetch();
                 self.a = self.a.wrapping_add(operand);
             }
-            DEC_A => self.a = self.a.wrapping_sub(1),
+            BRA => {
+                let displacement = self.fetch();
+                self.pc = self.pc.wrapping_add(u16::from(displacement));
+            }
+            DEC_A => {
+                self.a = self.a.wrapping_sub(1);
+            }
             HALT => return false,
             INC_A => self.a = self.a.wrapping_add(1),
             JMP => {
@@ -180,5 +187,12 @@ mod tests {
         cpu.run_program(&[JMP, 5, 0, INC_A, HALT, HALT]).unwrap();
         assert_eq!(cpu.a, 0, "wrong A");
         assert_eq!(cpu.pc, 6, "wrong PC after run()");
+    }
+
+    #[test]
+    fn bra_always_branches() {
+        let mut cpu = Cpu::default();
+        cpu.run_program(&[BRA, 1, HALT, HALT]).unwrap();
+        assert_eq!(cpu.pc, 4, "wrong PC");
     }
 }
