@@ -13,6 +13,7 @@ pub struct Cpu {
     pub a: u8,
     pub mem: [u8; 65536],
     pub pc: u16,
+    pub zero: bool,
 }
 
 impl Default for Cpu {
@@ -21,6 +22,7 @@ impl Default for Cpu {
             a: 0,
             mem: [0; 65536],
             pc: 0,
+            zero: false,
         }
     }
 }
@@ -98,6 +100,7 @@ mod tests {
         let cpu = Cpu::default();
         assert_eq!(cpu.a, 0, "wrong initial A");
         assert_eq!(cpu.pc, 0, "wrong initial PC");
+        assert_eq!(cpu.zero, false, "wrong initial zero flag");
         assert_eq!(*cpu.mem.first().unwrap(), 0, "wrong memory contents");
     }
 
