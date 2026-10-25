@@ -281,16 +281,16 @@ mod tests {
         }
         let cases: &[Case] = &[
             Case {
-                code: INC_A,
-                source: "inc a",
-            },
-            Case {
                 code: DEC_A,
                 source: "dec a",
             },
             Case {
                 code: HALT,
                 source: "halt",
+            },
+            Case {
+                code: INC_A,
+                source: "inc a",
             },
             Case {
                 code: 255,
