@@ -115,12 +115,25 @@ impl Cpu {
 }
 
 #[must_use]
-pub fn disassemble(code: u8) -> &'static str {
-    match code {
-        DEC_A => "dec a",
-        HALT => "halt",
-        INC_A => "inc a",
-        _ => "???",
+pub fn disassemble(code: &[u8]) -> String {
+    let Some(&opcode) = code.first() else {
+        return "???".to_owned();
+    };
+    let operand = code.get(1);
+    match opcode {
+        BEQ => format!("beq {}", format_byte(operand)),
+        DEC_A => "dec a".to_owned(),
+        HALT => "halt".to_owned(),
+        INC_A => "inc a".to_owned(),
+        LD_A => format!("ld a, {}", format_byte(operand)),
+        _ => "???".to_owned(),
+    }
+}
+
+fn format_byte(maybe_byte: Option<&u8>) -> String {
+    match maybe_byte {
+        Some(byte) => format!("{byte}"),
+        None => "???".to_owned(),
     }
 }
 
@@ -276,24 +289,32 @@ mod tests {
     #[test]
     fn disassemble_correctly_disassembles_code() {
         struct Case {
-            code: u8,
+            code: &'static [u8],
             source: &'static str,
         }
         let cases: &[Case] = &[
             Case {
-                code: DEC_A,
+                code: &[BEQ, 3],
+                source: "beq 3",
+            },
+            Case {
+                code: &[DEC_A],
                 source: "dec a",
             },
             Case {
-                code: HALT,
+                code: &[HALT],
                 source: "halt",
             },
             Case {
-                code: INC_A,
+                code: &[INC_A],
                 source: "inc a",
             },
             Case {
-                code: 255,
+                code: &[LD_A, 10],
+                source: "ld a, 10",
+            },
+            Case {
+                code: &[255],
                 source: "???",
             },
         ];
@@ -301,7 +322,7 @@ mod tests {
             assert_eq!(
                 disassemble(case.code),
                 case.source,
-                "wrong disassembly: {}",
+                "wrong disassembly: {:?}",
                 case.code
             );
         }
