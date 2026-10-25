@@ -16,7 +16,7 @@ fn main() -> Result<()> {
     let mut buffer = String::new();
     loop {
         let addr = usize::from(cpu.pc);
-        let code = cpu.mem.get(addr).copied().unwrap_or_default();
+        let code = cpu.mem.get(addr..addr + 3).unwrap_or_default();
         let asm = disassemble(code);
         println!("  PC  A | NEXT");
         print!("{:04} {:02} | {asm}\n> ", cpu.pc, cpu.a);
