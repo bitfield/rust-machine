@@ -120,13 +120,15 @@ pub fn disassemble(code: &[u8]) -> String {
     let Some(&opcode) = code.first() else {
         return "???".to_owned();
     };
-    let operand = code.get(1);
+    let op_lo = code.get(1);
+    let op_hi = code.get(2);
     match opcode {
-        BEQ => format!("beq {}", format_byte(operand)),
+        BEQ => format!("beq {}", format_byte(op_lo)),
         DEC_A => "dec a".to_owned(),
         HALT => "halt".to_owned(),
         INC_A => "inc a".to_owned(),
-        LD_A => format!("ld a, {}", format_byte(operand)),
+        JMP => format!("jmp {}", format_word(op_lo, op_hi)),
+        LD_A => format!("ld a, {}", format_byte(op_lo)),
         _ => "???".to_owned(),
     }
 }
@@ -135,6 +137,13 @@ fn format_byte(maybe_byte: Option<&u8>) -> String {
     match maybe_byte {
         Some(byte) => format!("{byte}"),
         None => "???".to_owned(),
+    }
+}
+
+fn format_word(maybe_lo: Option<&u8>, maybe_hi: Option<&u8>) -> String {
+    match (maybe_lo, maybe_hi) {
+        (Some(&lo), Some(&hi)) => format!("{}", u16::from_le_bytes([lo, hi])),
+        _ => "???".to_owned(),
     }
 }
 
@@ -308,6 +317,10 @@ mod tests {
             Case {
                 code: &[INC_A],
                 source: "inc a",
+            },
+            Case {
+                code: &[JMP, 2, 1],
+                source: "jmp 258",
             },
             Case {
                 code: &[LD_A, 10],
