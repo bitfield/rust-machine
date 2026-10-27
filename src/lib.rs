@@ -8,6 +8,7 @@ pub const HALT: u8 = 0;
 pub const INC_A: u8 = 48;
 pub const JMP: u8 = 247;
 pub const LD_A: u8 = 16;
+pub const TRAP: u8 = 249;
 
 #[expect(clippy::min_ident_chars, reason = "some regs have single-letter names")]
 #[derive(Debug)]
@@ -104,6 +105,12 @@ impl Cpu {
                 self.a = operand;
                 self.update_zero(self.a);
             }
+            TRAP => {
+                let operand = self.fetch();
+                if operand == 32 {
+                    print!("{}", char::from(self.a));
+                }
+            }
             _ => {}
         }
         true
@@ -128,6 +135,7 @@ pub fn disassemble(code: &[u8]) -> (String, usize) {
         INC_A => ("inc a".to_owned(), 1),
         JMP => (format!("jmp {}", format_word(op_lo, op_hi)), 3),
         LD_A => (format!("ld a, {}", format_byte(op_lo)), 2),
+        TRAP => (format!("trap {}", format_byte(op_lo)), 2),
         _ => ("???".to_owned(), 1),
     }
 }
@@ -325,6 +333,10 @@ mod tests {
             Case {
                 code: &[LD_A, 10],
                 source: "ld a, 10",
+            },
+            Case {
+                code: &[TRAP, 32],
+                source: "trap 32",
             },
             Case {
                 code: &[255],
