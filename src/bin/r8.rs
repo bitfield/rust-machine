@@ -17,7 +17,7 @@ fn main() -> Result<()> {
     loop {
         let addr = usize::from(cpu.pc);
         let code = cpu.mem.get(addr..addr + 3).unwrap_or_default();
-        let asm = disassemble(code);
+        let (asm, _) = disassemble(code);
         println!("  PC  A | NEXT");
         print!("{:04} {:02} | {asm}\n> ", cpu.pc, cpu.a);
         stdout().flush()?;

@@ -116,20 +116,20 @@ impl Cpu {
 }
 
 #[must_use]
-pub fn disassemble(code: &[u8]) -> String {
+pub fn disassemble(code: &[u8]) -> (String, usize) {
     let Some(&opcode) = code.first() else {
-        return "???".to_owned();
+        return ("???".to_owned(), 0);
     };
     let op_lo = code.get(1);
     let op_hi = code.get(2);
     match opcode {
-        BEQ => format!("beq {}", format_byte(op_lo)),
-        DEC_A => "dec a".to_owned(),
-        HALT => "halt".to_owned(),
-        INC_A => "inc a".to_owned(),
-        JMP => format!("jmp {}", format_word(op_lo, op_hi)),
-        LD_A => format!("ld a, {}", format_byte(op_lo)),
-        _ => "???".to_owned(),
+        BEQ => (format!("beq {}", format_byte(op_lo)), 2),
+        DEC_A => ("dec a".to_owned(), 1),
+        HALT => ("halt".to_owned(), 1),
+        INC_A => ("inc a".to_owned(), 1),
+        JMP => (format!("jmp {}", format_word(op_lo, op_hi)), 3),
+        LD_A => (format!("ld a, {}", format_byte(op_lo)), 2),
+        _ => ("???".to_owned(), 1),
     }
 }
 
@@ -332,12 +332,9 @@ mod tests {
             },
         ];
         for case in cases {
-            assert_eq!(
-                disassemble(case.code),
-                case.source,
-                "wrong disassembly: {:?}",
-                case.code
-            );
+            let (code, bytes) = disassemble(case.code);
+            assert_eq!(code, case.source, "wrong disassembly: {:?}", case.code);
+            assert_eq!(bytes, case.code.len(), "wrong length");
         }
     }
 }
