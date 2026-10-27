@@ -1,18 +1,24 @@
 use anyhow::Result;
 
 use std::{
-    env,
+    env, fs,
     io::{Write as _, stdin, stdout},
-    num::ParseIntError,
 };
 
 use r8::{Cpu, disassemble};
 
+const USAGE: &str = "Usage: r8 FILE";
+
+#[expect(clippy::unwrap_used, reason = "arg count checked")]
 fn main() -> Result<()> {
-    let program: Result<Vec<u8>, ParseIntError> =
-        env::args().skip(1).map(|arg| arg.parse()).collect();
+    if env::args().count() < 2 {
+        println!("{USAGE}");
+        return Ok(());
+    }
+    let path = env::args().nth(1).unwrap();
+    let program = fs::read(path)?;
     let mut cpu = Cpu::default();
-    cpu.load_program(&program?)?;
+    cpu.load_program(&program)?;
     let mut buffer = String::new();
     loop {
         let addr = usize::from(cpu.pc);
