@@ -3,6 +3,7 @@ use anyhow::{Context as _, Result};
 pub const ADD_A: u8 = 80;
 pub const BEQ: u8 = 241;
 pub const BRA: u8 = 240;
+pub const CMP_A: u8 = 112;
 pub const DEC_A: u8 = 64;
 pub const HALT: u8 = 0;
 pub const INC_A: u8 = 48;
@@ -86,6 +87,10 @@ impl Cpu {
                 let displacement = self.fetch();
                 self.pc = self.pc.wrapping_add(u16::from(displacement));
             }
+            CMP_A => {
+                let operand = self.fetch();
+                self.zero = self.a == operand;
+            }
             DEC_A => {
                 self.a = self.a.wrapping_sub(1);
                 self.update_zero(self.a);
@@ -131,6 +136,7 @@ pub fn disassemble(code: &[u8]) -> (String, usize) {
     let op_hi = code.get(2);
     match opcode {
         BEQ => (format!("beq {}", format_byte(op_lo)), 2),
+        CMP_A => (format!("cmp a, {}", format_byte(op_lo)), 2),
         DEC_A => ("dec a".to_owned(), 1),
         HALT => ("halt".to_owned(), 1),
         INC_A => ("inc a".to_owned(), 1),
@@ -304,6 +310,20 @@ mod tests {
     }
 
     #[test]
+    fn cmp_sets_zero_if_operand_equal() {
+        let mut cpu = Cpu::default();
+        cpu.run_program(&[LD_A, 1, CMP_A, 1, HALT]).unwrap();
+        assert_eq!(cpu.zero, true, "zero not set");
+    }
+
+    #[test]
+    fn cmp_clears_zero_if_operand_not_equal() {
+        let mut cpu = Cpu::default();
+        cpu.run_program(&[LD_A, 0, CMP_A, 1, HALT]).unwrap();
+        assert_eq!(cpu.zero, false, "zero not cleared");
+    }
+
+    #[test]
     fn disassemble_correctly_disassembles_code() {
         struct Case {
             code: &'static [u8],
@@ -313,6 +333,10 @@ mod tests {
             Case {
                 code: &[BEQ, 3],
                 source: "beq 3",
+            },
+            Case {
+                code: &[CMP_A, 1],
+                source: "cmp a, 1",
             },
             Case {
                 code: &[DEC_A],
