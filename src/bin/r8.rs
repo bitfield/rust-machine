@@ -28,6 +28,10 @@ fn main() -> Result<()> {
         print!("{:04} {:02} | {asm}\n> ", cpu.pc, cpu.a);
         stdout().flush()?;
         stdin().read_line(&mut buffer)?;
-        cpu.step();
+        if buffer.trim() == "g" {
+            cpu.run();
+        } else {
+            cpu.step();
+        }
     }
 }
