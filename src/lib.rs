@@ -1,14 +1,19 @@
-use anyhow::{Context as _, Result};
+use anyhow::{Context as _, Result, bail};
 
 pub const ADD_A: u8 = 0x50;
+pub const ADD_B: u8 = 0x51;
 pub const BEQ: u8 = 0xF1;
 pub const BRA: u8 = 0xF0;
 pub const CMP_A: u8 = 0x70;
+pub const CMP_B: u8 = 0x71;
 pub const DEC_A: u8 = 0x40;
+pub const DEC_B: u8 = 0x41;
 pub const HALT: u8 = 0x00;
 pub const INC_A: u8 = 0x30;
+pub const INC_B: u8 = 0x31;
 pub const JMP: u8 = 0xF7;
 pub const LD_A: u8 = 0x10;
+pub const LD_B: u8 = 0x11;
 pub const TRAP: u8 = 0xF9;
 
 pub const TRAP_PRINT: u8 = 0x20;
@@ -126,6 +131,35 @@ impl Cpu {
     pub fn update_zero(&mut self, value: u8) {
         self.zero = value == 0x00;
     }
+}
+
+#[expect(clippy::min_ident_chars, reason = "actual names")]
+#[derive(Debug, PartialEq)]
+pub enum Reg {
+    A,
+    B,
+}
+
+impl TryFrom<u8> for Reg {
+    type Error = anyhow::Error;
+
+    #[expect(clippy::absolute_paths, reason = "disambiguate from anyhow::Result")]
+    fn try_from(id: u8) -> core::result::Result<Self, Self::Error> {
+        Ok(match id {
+            0x00 => Reg::A,
+            0x01 => Reg::B,
+            _ => bail!("invalid register id {id:#04X}"),
+        })
+    }
+}
+
+/// Returns the register targeted by `opcode`.
+///
+/// # Errors
+///
+/// * Invalid register ID
+pub fn get_target(opcode: u8) -> Result<Reg> {
+    Reg::try_from(opcode & 0x0F)
 }
 
 #[must_use]
@@ -352,6 +386,63 @@ mod tests {
         let mut cpu = Cpu::default();
         cpu.run_program(&[LD_A, 0x00, CMP_A, 0x01, HALT]).unwrap();
         assert_zero!(cpu.zero, false);
+    }
+
+    #[test]
+    fn get_target_fn_extracts_reg_id_from_opcode() {
+        struct Case {
+            opcode: u8,
+            target: Reg,
+        }
+        let cases: &[Case] = &[
+            Case {
+                opcode: ADD_A,
+                target: Reg::A,
+            },
+            Case {
+                opcode: ADD_B,
+                target: Reg::B,
+            },
+            Case {
+                opcode: CMP_A,
+                target: Reg::A,
+            },
+            Case {
+                opcode: CMP_B,
+                target: Reg::B,
+            },
+            Case {
+                opcode: DEC_A,
+                target: Reg::A,
+            },
+            Case {
+                opcode: DEC_B,
+                target: Reg::B,
+            },
+            Case {
+                opcode: INC_A,
+                target: Reg::A,
+            },
+            Case {
+                opcode: INC_B,
+                target: Reg::B,
+            },
+            Case {
+                opcode: LD_A,
+                target: Reg::A,
+            },
+            Case {
+                opcode: LD_B,
+                target: Reg::B,
+            },
+        ];
+        for case in cases {
+            assert_eq!(
+                get_target(case.opcode).unwrap(),
+                case.target,
+                "wrong target"
+            );
+        }
     }
 
     #[test]
