@@ -1,15 +1,17 @@
 use anyhow::{Context as _, Result};
 
-pub const ADD_A: u8 = 80;
-pub const BEQ: u8 = 241;
-pub const BRA: u8 = 240;
-pub const CMP_A: u8 = 112;
-pub const DEC_A: u8 = 64;
-pub const HALT: u8 = 0;
-pub const INC_A: u8 = 48;
-pub const JMP: u8 = 247;
-pub const LD_A: u8 = 16;
-pub const TRAP: u8 = 249;
+pub const ADD_A: u8 = 0x50;
+pub const BEQ: u8 = 0xF1;
+pub const BRA: u8 = 0xF0;
+pub const CMP_A: u8 = 0x70;
+pub const DEC_A: u8 = 0x40;
+pub const HALT: u8 = 0x00;
+pub const INC_A: u8 = 0x30;
+pub const JMP: u8 = 0xF7;
+pub const LD_A: u8 = 0x10;
+pub const TRAP: u8 = 0xF9;
+
+pub const TRAP_PRINT: u8 = 0x20;
 
 #[expect(clippy::min_ident_chars, reason = "some regs have single-letter names")]
 #[derive(Debug)]
@@ -23,9 +25,9 @@ pub struct Cpu {
 impl Default for Cpu {
     fn default() -> Self {
         Self {
-            a: 0,
-            mem: [0; 65536],
-            pc: 0,
+            a: 0x00,
+            mem: [0x00; 65536],
+            pc: 0x0000,
             zero: false,
         }
     }
@@ -35,7 +37,7 @@ impl Cpu {
     pub fn fetch(&mut self) -> u8 {
         let address = usize::from(self.pc);
         let value = self.mem.get(address).copied().unwrap_or_default();
-        self.pc = self.pc.wrapping_add(1);
+        self.pc = self.pc.wrapping_add(0x01);
         value
     }
 
@@ -91,12 +93,12 @@ impl Cpu {
                 self.zero = self.a == operand;
             }
             DEC_A => {
-                self.a = self.a.wrapping_sub(1);
+                self.a = self.a.wrapping_sub(0x01);
                 self.update_zero(self.a);
             }
             HALT => return false,
             INC_A => {
-                self.a = self.a.wrapping_add(1);
+                self.a = self.a.wrapping_add(0x01);
                 self.update_zero(self.a);
             }
             JMP => {
@@ -112,7 +114,7 @@ impl Cpu {
             }
             TRAP => {
                 let operand = self.fetch();
-                if operand == 32 {
+                if operand == TRAP_PRINT {
                     print!("{}", char::from(self.a));
                 }
             }
@@ -122,7 +124,7 @@ impl Cpu {
     }
 
     pub fn update_zero(&mut self, value: u8) {
-        self.zero = value == 0;
+        self.zero = value == 0x00;
     }
 }
 
@@ -148,14 +150,14 @@ pub fn disassemble(code: &[u8]) -> (String, usize) {
 
 fn format_byte(maybe_byte: Option<&u8>) -> String {
     match maybe_byte {
-        Some(byte) => format!("{byte}"),
+        Some(byte) => format!("{byte:#04X}"),
         None => "???".to_owned(),
     }
 }
 
 fn format_word(maybe_lo: Option<&u8>, maybe_hi: Option<&u8>) -> String {
     match (maybe_lo, maybe_hi) {
-        (Some(&lo), Some(&hi)) => format!("{}", u16::from_le_bytes([lo, hi])),
+        (Some(&lo), Some(&hi)) => format!("{:#06X}", u16::from_le_bytes([lo, hi])),
         _ => "???".to_owned(),
     }
 }
@@ -165,12 +167,38 @@ fn format_word(maybe_lo: Option<&u8>, maybe_hi: Option<&u8>) -> String {
 mod tests {
     use super::*;
 
+    macro_rules! assert_eq_hex {
+        ( $got:expr, $want:expr, $msg:expr ) => {
+            assert_eq!(
+                $got, $want,
+                "{}: want {:#04X}, got {:#04X}",
+                $msg, $want, $got,
+            );
+        };
+    }
+
+    macro_rules! assert_eq_hex16 {
+        ( $got:expr, $want:expr, $msg:expr ) => {
+            assert_eq!(
+                $got, $want,
+                "{}: want {:#06X}, got {:#06X}",
+                $msg, $want, $got,
+            );
+        };
+    }
+
+    macro_rules! assert_zero {
+        ( $got:expr, $want:expr ) => {
+            assert_eq!($got, $want, "want zero {}, got {}", $want, $got,);
+        };
+    }
+
     #[test]
     fn default_correctly_initialises_cpu() {
         let cpu = Cpu::default();
-        assert_eq!(cpu.a, 0, "wrong initial A");
-        assert_eq!(cpu.pc, 0, "wrong initial PC");
-        assert_eq!(cpu.zero, false, "wrong initial zero flag");
+        assert_eq_hex!(cpu.a, 0x00, "wrong A");
+        assert_eq_hex16!(cpu.pc, 0x0000, "wrong PC");
+        assert_zero!(cpu.zero, false);
         assert_eq!(*cpu.mem.first().unwrap(), 0, "wrong memory contents");
     }
 
@@ -178,9 +206,9 @@ mod tests {
     fn step_increments_pc() {
         let mut cpu = Cpu::default();
         cpu.step();
-        assert_eq!(cpu.pc, 1, "wrong PC after step()");
+        assert_eq_hex16!(cpu.pc, 0x0001, "wrong PC");
         cpu.step();
-        assert_eq!(cpu.pc, 2, "wrong PC after step()");
+        assert_eq_hex16!(cpu.pc, 0x0002, "wrong PC");
     }
 
     #[test]
@@ -188,139 +216,142 @@ mod tests {
         let mut cpu = Cpu::default();
         cpu.zero = true;
         cpu.run_program(&[INC_A, HALT]).unwrap();
-        assert_eq!(cpu.a, 1, "wrong A after `inc a`");
-        assert_eq!(cpu.zero, false, "zero not cleared");
+        assert_eq_hex!(cpu.a, 0x01, "wrong A");
+        assert_zero!(cpu.zero, false);
     }
 
     #[test]
-    fn a_goes_from_255_to_0() {
+    fn a_goes_from_ff_to_00() {
         let mut cpu = Cpu::default();
-        cpu.a = 255;
+        cpu.a = 0xFF;
         cpu.run_program(&[INC_A, HALT]).unwrap();
-        assert_eq!(cpu.a, 0, "wrong A after `inc a` past 255");
-        assert_eq!(cpu.zero, true, "zero not set");
+        assert_eq_hex!(cpu.a, 0x00, "wrong A");
+        assert_zero!(cpu.zero, true);
     }
 
     #[test]
-    fn a_decrements_from_0_to_255() {
+    fn a_decrements_from_00_to_ff() {
         let mut cpu = Cpu::default();
-        cpu.a = 0;
+        cpu.a = 0x00;
         cpu.zero = true;
         cpu.run_program(&[DEC_A, HALT]).unwrap();
-        assert_eq!(cpu.a, 255, "wrong A after `dec a` below 0");
-        assert_eq!(cpu.zero, false, "zero not cleared");
+        assert_eq_hex!(cpu.a, 0xFF, "wrong A");
+        assert_zero!(cpu.zero, false);
     }
 
     #[test]
     fn dec_sets_zero_flag() {
         let mut cpu = Cpu::default();
-        cpu.a = 1;
+        cpu.a = 0x01;
         cpu.run_program(&[DEC_A, HALT]).unwrap();
-        assert_eq!(cpu.zero, true, "zero not set");
+        assert_zero!(cpu.zero, true);
     }
 
     #[test]
-    fn pc_goes_from_65535_to_0() {
+    fn pc_goes_from_ffff_to_0000() {
         let mut cpu = Cpu::default();
-        cpu.pc = 65535;
+        cpu.pc = 0xFFFF;
         cpu.step();
-        assert_eq!(cpu.pc, 0, "wrong PC after 65535");
+        assert_eq_hex16!(cpu.pc, 0x0000, "wrong PC");
     }
 
     #[test]
     fn memory_is_bytes() {
         let mut cpu = Cpu::default();
-        cpu.mem[0] = 0_u8;
-        assert_eq!(cpu.mem[0], 0, "wrong memory contents");
+        cpu.mem[0x0000] = 0x00;
+        assert_eq!(cpu.mem[0x0000], 0x00, "wrong memory contents");
     }
 
     #[test]
     fn run_runs_until_halted() {
         let mut cpu = Cpu::default();
         cpu.run_program(&[INC_A, HALT]).unwrap();
-        assert_eq!(cpu.a, 1, "wrong A after `inc a`");
-        assert_eq!(cpu.pc, 2, "wrong PC after run()");
+        assert_eq_hex!(cpu.a, 0x01, "wrong A");
+        assert_eq_hex16!(cpu.pc, 0x0002, "wrong PC");
     }
 
     #[test]
     fn ld_loads_accumulator() {
         let mut cpu = Cpu::default();
-        cpu.a = 10;
+        cpu.a = 0x0A;
         cpu.zero = true;
-        cpu.run_program(&[LD_A, 5, HALT]).unwrap();
-        assert_eq!(cpu.a, 5, "wrong A after `ld a`");
-        assert_eq!(cpu.pc, 3, "wrong PC after run()");
-        assert_eq!(cpu.zero, false, "zero not cleared");
+        cpu.run_program(&[LD_A, 0x05, HALT]).unwrap();
+        assert_eq_hex!(cpu.a, 0x05, "wrong A");
+        assert_eq_hex16!(cpu.pc, 0x0003, "wrong PC");
+        assert_zero!(cpu.zero, false);
     }
 
     #[test]
     fn ld_sets_zero_flag() {
         let mut cpu = Cpu::default();
-        cpu.a = 10;
-        cpu.run_program(&[LD_A, 0, HALT]).unwrap();
-        assert_eq!(cpu.zero, true, "zero not set");
+        cpu.a = 0x0A;
+        cpu.run_program(&[LD_A, 0x00, HALT]).unwrap();
+        assert_zero!(cpu.zero, true);
     }
 
     #[test]
     fn add_adds_to_accumulator() {
         let mut cpu = Cpu::default();
-        cpu.a = 1;
+        cpu.a = 0x01;
         cpu.zero = true;
-        cpu.run_program(&[ADD_A, 2, HALT]).unwrap();
-        assert_eq!(cpu.a, 3, "wrong A after `add a`");
-        assert_eq!(cpu.pc, 3, "wrong PC after run()");
-        assert_eq!(cpu.zero, false, "zero not cleared");
+        cpu.run_program(&[ADD_A, 0x02, HALT]).unwrap();
+        assert_eq_hex!(cpu.a, 0x03, "wrong A");
+        assert_eq_hex16!(cpu.pc, 0x0003, "wrong PC");
+        assert_zero!(cpu.zero, false);
     }
 
     #[test]
     fn add_sets_zero_flag() {
         let mut cpu = Cpu::default();
-        cpu.a = 1;
-        cpu.run_program(&[ADD_A, 255, HALT]).unwrap();
+        cpu.a = 0x01;
+        cpu.run_program(&[ADD_A, 0xFF, HALT]).unwrap();
         assert_eq!(cpu.zero, true, "zero not set");
     }
 
     #[test]
     fn jmp_jumps_to_specified_address() {
         let mut cpu = Cpu::default();
-        cpu.run_program(&[JMP, 5, 0, INC_A, HALT, HALT]).unwrap();
-        assert_eq!(cpu.a, 0, "wrong A");
-        assert_eq!(cpu.pc, 6, "wrong PC after run()");
+        cpu.run_program(&[JMP, 0x05, 0x00, INC_A, HALT, HALT])
+            .unwrap();
+        assert_eq_hex!(cpu.a, 0x00, "wrong A");
+        assert_eq_hex16!(cpu.pc, 0x0006, "wrong PC");
     }
 
     #[test]
     fn bra_always_branches() {
         let mut cpu = Cpu::default();
-        cpu.run_program(&[BRA, 1, HALT, HALT]).unwrap();
-        assert_eq!(cpu.pc, 4, "wrong PC");
+        cpu.run_program(&[BRA, 0x01, HALT, HALT]).unwrap();
+        assert_eq_hex16!(cpu.pc, 0x0004, "wrong PC");
     }
 
     #[test]
     fn beq_takes_branch_if_zero_flag_set() {
         let mut cpu = Cpu::default();
-        cpu.run_program(&[LD_A, 0, BEQ, 1, HALT, HALT]).unwrap();
-        assert_eq!(cpu.pc, 6, "wrong PC");
+        cpu.run_program(&[LD_A, 0x00, BEQ, 0x01, HALT, HALT])
+            .unwrap();
+        assert_eq_hex16!(cpu.pc, 0x0006, "wrong PC");
     }
 
     #[test]
     fn beq_does_not_take_branch_if_zero_flag_clear() {
         let mut cpu = Cpu::default();
-        cpu.run_program(&[LD_A, 1, BEQ, 1, HALT, HALT]).unwrap();
-        assert_eq!(cpu.pc, 5, "wrong PC");
+        cpu.run_program(&[LD_A, 0x01, BEQ, 0x01, HALT, HALT])
+            .unwrap();
+        assert_eq_hex16!(cpu.pc, 0x0005, "wrong PC");
     }
 
     #[test]
     fn cmp_sets_zero_if_operand_equal() {
         let mut cpu = Cpu::default();
-        cpu.run_program(&[LD_A, 1, CMP_A, 1, HALT]).unwrap();
-        assert_eq!(cpu.zero, true, "zero not set");
+        cpu.run_program(&[LD_A, 0x01, CMP_A, 0x01, HALT]).unwrap();
+        assert_zero!(cpu.zero, true);
     }
 
     #[test]
     fn cmp_clears_zero_if_operand_not_equal() {
         let mut cpu = Cpu::default();
-        cpu.run_program(&[LD_A, 0, CMP_A, 1, HALT]).unwrap();
-        assert_eq!(cpu.zero, false, "zero not cleared");
+        cpu.run_program(&[LD_A, 0x00, CMP_A, 0x01, HALT]).unwrap();
+        assert_zero!(cpu.zero, false);
     }
 
     #[test]
@@ -331,12 +362,12 @@ mod tests {
         }
         let cases: &[Case] = &[
             Case {
-                code: &[BEQ, 3],
-                source: "beq 3",
+                code: &[BEQ, 0x03],
+                source: "beq 0x03",
             },
             Case {
                 code: &[CMP_A, 1],
-                source: "cmp a, 1",
+                source: "cmp a, 0x01",
             },
             Case {
                 code: &[DEC_A],
@@ -351,19 +382,19 @@ mod tests {
                 source: "inc a",
             },
             Case {
-                code: &[JMP, 2, 0],
-                source: "jmp 2",
+                code: &[JMP, 0x02, 0x00],
+                source: "jmp 0x0002",
             },
             Case {
-                code: &[LD_A, 10],
-                source: "ld a, 10",
+                code: &[LD_A, 0x0A],
+                source: "ld a, 0x0A",
             },
             Case {
-                code: &[TRAP, 32],
-                source: "trap 32",
+                code: &[TRAP, 0x20],
+                source: "trap 0x20",
             },
             Case {
-                code: &[255],
+                code: &[0xFF],
                 source: "???",
             },
         ];
