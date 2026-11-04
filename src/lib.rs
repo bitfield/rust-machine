@@ -1,4 +1,4 @@
-use anyhow::{Context as _, Result};
+use anyhow::{Context as _, Result, bail};
 
 pub const ADD_A: u8 = 0x50;
 pub const BEQ: u8 = 0xF1;
@@ -9,6 +9,7 @@ pub const HALT: u8 = 0x00;
 pub const INC_A: u8 = 0x30;
 pub const JMP: u8 = 0xF7;
 pub const LD_A: u8 = 0x10;
+pub const LD_B: u8 = 0x11;
 pub const TRAP: u8 = 0xF9;
 
 pub const TRAP_PRINT: u8 = 0x20;
@@ -129,6 +130,35 @@ impl Cpu {
     }
 }
 
+#[expect(clippy::min_ident_chars, reason = "actual names")]
+#[derive(Debug, PartialEq)]
+pub enum Reg {
+    A,
+    B,
+}
+
+impl TryFrom<u8> for Reg {
+    type Error = anyhow::Error;
+
+    #[expect(clippy::absolute_paths, reason = "disambiguate from anyhow::Result")]
+    fn try_from(id: u8) -> core::result::Result<Self, Self::Error> {
+        Ok(match id {
+            0x00 => Reg::A,
+            0x01 => Reg::B,
+            _ => bail!("invalid register id {id:#04X}"),
+        })
+    }
+}
+
+/// Returns the register targeted by `opcode`.
+///
+/// # Errors
+///
+/// * Invalid register ID
+pub fn get_target(opcode: u8) -> Result<Reg> {
+    Reg::try_from(opcode & 0x0F)
+}
+
 #[must_use]
 pub fn disassemble(code: &[u8]) -> (String, usize) {
     let Some(&opcode) = code.first() else {
@@ -144,6 +174,7 @@ pub fn disassemble(code: &[u8]) -> (String, usize) {
         INC_A => ("inc a".to_owned(), 1),
         JMP => (format!("jmp {}", format_word(op_lo, op_hi)), 3),
         LD_A => (format!("ld a, {}", format_byte(op_lo)), 2),
+        LD_B => (format!("ld b, {}", format_byte(op_lo)), 2),
         TRAP => (format!("trap {}", format_byte(op_lo)), 2),
         _ => ("???".to_owned(), 1),
     }
@@ -354,6 +385,47 @@ mod tests {
     }
 
     #[test]
+    fn get_target_fn_extracts_reg_id_from_opcode() {
+        struct Case {
+            opcode: u8,
+            target: Reg,
+        }
+        let cases: &[Case] = &[
+            Case {
+                opcode: ADD_A,
+                target: Reg::A,
+            },
+            Case {
+                opcode: CMP_A,
+                target: Reg::A,
+            },
+            Case {
+                opcode: DEC_A,
+                target: Reg::A,
+            },
+            Case {
+                opcode: INC_A,
+                target: Reg::A,
+            },
+            Case {
+                opcode: LD_A,
+                target: Reg::A,
+            },
+            Case {
+                opcode: LD_B,
+                target: Reg::B,
+            },
+        ];
+        for case in cases {
+            assert_eq!(
+                get_target(case.opcode).unwrap(),
+                case.target,
+                "wrong target"
+            );
+        }
+    }
+
+    #[test]
     fn disassemble_correctly_disassembles_code() {
         struct Case {
             code: &'static [u8],
@@ -387,6 +459,10 @@ mod tests {
             Case {
                 code: &[LD_A, 0x0A],
                 source: "ld a, 0x0A",
+            },
+            Case {
+                code: &[LD_B, 0x01],
+                source: "ld b, 0x01",
             },
             Case {
                 code: &[TRAP, 0x20],
