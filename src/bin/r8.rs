@@ -25,7 +25,7 @@ fn main() -> Result<()> {
         let code = cpu.mem.get(addr..addr + 3).unwrap_or_default();
         let (asm, _) = disassemble(code);
         println!("  PC  A | NEXT");
-        print!("{:04} {:02} | {asm}\n> ", cpu.pc, cpu.a);
+        print!("{:04X} {:02X} | {asm}\n> ", cpu.pc, cpu.a);
         stdout().flush()?;
         stdin().read_line(&mut buffer)?;
         if buffer.trim() == "g" {
