@@ -24,8 +24,8 @@ fn main() -> Result<()> {
         let addr = usize::from(cpu.pc);
         let code = cpu.mem.get(addr..addr + 3).unwrap_or_default();
         let (asm, _) = disassemble(code);
-        println!("  PC  A | NEXT");
-        print!("{:04X} {:02X} | {asm}\n> ", cpu.pc, cpu.a);
+        println!("  PC  A  B | NEXT");
+        print!("{:04X} {:02X} {:02X} | {asm}\n> ", cpu.pc, cpu.a, cpu.b);
         stdout().flush()?;
         stdin().read_line(&mut buffer)?;
         if buffer.trim() == "g" {

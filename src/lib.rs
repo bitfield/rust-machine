@@ -18,6 +18,7 @@ pub const TRAP_PRINT: u8 = 0x20;
 #[derive(Debug)]
 pub struct Cpu {
     pub a: u8,
+    pub b: u8,
     pub mem: [u8; 65536],
     pub pc: u16,
     pub zero: bool,
@@ -27,6 +28,7 @@ impl Default for Cpu {
     fn default() -> Self {
         Self {
             a: 0x00,
+            b: 0x00,
             mem: [0x00; 65536],
             pc: 0x0000,
             zero: false,
@@ -113,6 +115,11 @@ impl Cpu {
                 let operand = self.fetch();
                 self.a = operand;
                 self.update_zero(self.a);
+            }
+            LD_B => {
+                let operand = self.fetch();
+                self.b = operand;
+                self.update_zero(self.b);
             }
             TRAP => {
                 let operand = self.fetch();
@@ -229,6 +236,7 @@ mod tests {
     fn default_correctly_initialises_cpu() {
         let cpu = Cpu::default();
         assert_eq_hex!(cpu.a, 0x00, "wrong A");
+        assert_eq_hex!(cpu.b, 0x00, "wrong B");
         assert_eq_hex16!(cpu.pc, 0x0000, "wrong PC");
         assert_zero!(cpu.zero, false);
         assert_eq!(*cpu.mem.first().unwrap(), 0, "wrong memory contents");
@@ -303,13 +311,15 @@ mod tests {
     }
 
     #[test]
-    fn ld_loads_accumulator() {
+    fn ld_loads_a_and_b() {
         let mut cpu = Cpu::default();
         cpu.a = 0x0A;
+        cpu.b = 0x01;
         cpu.zero = true;
-        cpu.run_program(&[LD_A, 0x05, HALT]).unwrap();
+        cpu.run_program(&[LD_A, 0x05, LD_B, 0xFF, HALT]).unwrap();
         assert_eq_hex!(cpu.a, 0x05, "wrong A");
-        assert_eq_hex16!(cpu.pc, 0x0003, "wrong PC");
+        assert_eq_hex!(cpu.b, 0xFF, "wrong B");
+        assert_eq_hex16!(cpu.pc, 0x0005, "wrong PC");
         assert_zero!(cpu.zero, false);
     }
 
@@ -318,6 +328,9 @@ mod tests {
         let mut cpu = Cpu::default();
         cpu.a = 0x0A;
         cpu.run_program(&[LD_A, 0x00, HALT]).unwrap();
+        assert_zero!(cpu.zero, true);
+        cpu.zero = false;
+        cpu.run_program(&[LD_B, 0x00, HALT]).unwrap();
         assert_zero!(cpu.zero, true);
     }
 
