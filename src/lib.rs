@@ -1,3 +1,5 @@
+use core::fmt::{self, Display};
+
 use anyhow::{Context as _, Result, bail};
 
 pub const ADD_A: u8 = 0x50;
@@ -74,8 +76,17 @@ impl Cpu {
         Ok(())
     }
 
+    /// Sets `reg` to `value`.
+    pub fn set_register(&mut self, reg: Reg, value: u8) {
+        match reg {
+            Reg::A => self.a = value,
+            Reg::B => self.b = value,
+        }
+    }
+
     pub fn step(&mut self) -> bool {
         let opcode = self.fetch();
+        let maybe_target = get_target(opcode);
         match opcode {
             ADD_A => {
                 let operand = self.fetch();
@@ -111,15 +122,12 @@ impl Cpu {
                 let addr = u16::from_le_bytes([addr_lo, addr_hi]);
                 self.pc = addr;
             }
-            LD_A => {
+            LD_A | LD_B => {
                 let operand = self.fetch();
-                self.a = operand;
-                self.update_zero(self.a);
-            }
-            LD_B => {
-                let operand = self.fetch();
-                self.b = operand;
-                self.update_zero(self.b);
+                if let Ok(target) = maybe_target {
+                    self.set_register(target, operand);
+                    self.update_zero(operand);
+                }
             }
             TRAP => {
                 let operand = self.fetch();
@@ -138,10 +146,23 @@ impl Cpu {
 }
 
 #[expect(clippy::min_ident_chars, reason = "actual names")]
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Reg {
     A,
     B,
+}
+
+impl Display for Reg {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            match *self {
+                Reg::A => "a",
+                Reg::B => "b",
+            }
+        )
+    }
 }
 
 impl TryFrom<u8> for Reg {
@@ -180,8 +201,10 @@ pub fn disassemble(code: &[u8]) -> (String, usize) {
         HALT => ("halt".to_owned(), 1),
         INC_A => ("inc a".to_owned(), 1),
         JMP => (format!("jmp {}", format_word(op_lo, op_hi)), 3),
-        LD_A => (format!("ld a, {}", format_byte(op_lo)), 2),
-        LD_B => (format!("ld b, {}", format_byte(op_lo)), 2),
+        LD_A | LD_B => (
+            format!("ld {}, {}", format_reg(opcode), format_byte(op_lo)),
+            2,
+        ),
         TRAP => (format!("trap {}", format_byte(op_lo)), 2),
         _ => ("???".to_owned(), 1),
     }
@@ -192,6 +215,13 @@ fn format_byte(maybe_byte: Option<&u8>) -> String {
         Some(byte) => format!("{byte:#04X}"),
         None => "???".to_owned(),
     }
+}
+
+fn format_reg(opcode: u8) -> String {
+    let Ok(target) = get_target(opcode) else {
+        return "???".to_owned();
+    };
+    target.to_string()
 }
 
 fn format_word(maybe_lo: Option<&u8>, maybe_hi: Option<&u8>) -> String {
@@ -436,6 +466,15 @@ mod tests {
                 "wrong target"
             );
         }
+    }
+
+    #[test]
+    fn set_register_fn_sets_given_register_to_given_value() {
+        let mut cpu = Cpu::default();
+        cpu.set_register(Reg::A, 0xCA);
+        assert_eq_hex!(cpu.a, 0xCA, "wrong A");
+        cpu.set_register(Reg::B, 0xFE);
+        assert_eq_hex!(cpu.b, 0xFE, "wrong B");
     }
 
     #[test]
